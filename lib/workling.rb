@@ -11,11 +11,19 @@ module Workling
     end
   end
 
-  class ConfigurationError < WorklingError
+  class ConfigurationError < WorklingError; end
+
+  class ConfigFileMissingError < ConfigurationError
     def initialize
       super File.exist?(File.join(RAILS_ROOT, 'config', 'starling.yml')) ?
         "config/starling.yml has been depracated. rename your config file to config/workling.yml then try again!" :
         "config/workling.yml could not be loaded. check out README.markdown to see what this file should contain. "
+    end
+  end
+
+  class ConfigEnvironmentMissingError < ConfigurationError
+    def initialize
+      super "config/workling.yml does not contain an entry for environment #{RAILS_ENV.inspect}"
     end
   end
 
@@ -121,16 +129,18 @@ module Workling
   #  returns a config hash. reads RAILS_ROOT/config/workling.yml
   #
   def self.config(reload=false)
+    return @@config if defined?(@@config) && !reload
+    config_path = File.join(RAILS_ROOT, 'config', 'workling.yml')
     begin
-      return @@config if defined?(@@config) && !reload
-      config_path = File.join(RAILS_ROOT, 'config', 'workling.yml')
-      @@config = (YAML.load_file(config_path)[RAILS_ENV || 'development'] || { }).symbolize_keys
-      @@config[:memcache_options].symbolize_keys! if @@config[:memcache_options]
-      @@config
+      entire_config = YAML.load_file(config_path)
     rescue
-       # config files could not be read correctly
-      raise ConfigurationError.new
+      raise ConfigFileMissingError
     end
+    environment_config = entire_config[RAILS_ENV || 'development']
+    raise ConfigEnvironmentMissingError if environment_config.nil?
+    @@config = environment_config.symbolize_keys
+    @@config[:memcache_options].symbolize_keys! if @@config[:memcache_options]
+    @@config
   end
 
   #

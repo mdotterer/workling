@@ -15,18 +15,18 @@ context "config" do
     Workling.config(true).should.equal({ :listens_on => "localhost:12345" })
   end
 
-  specify "should return an empty hash when the current environment is not configured" do
+  specify "should raise an error when the current environment is not configured" do
     File.open(File.join(RAILS_ROOT, 'config', 'workling.yml'), 'w') do |file|
       file.print(YAML.dump({ 'development' => { 'listens_on' => 'localhost:98765' },
                    'production' => { 'listens_on' => 'localhost:12345'} }))
     end
 
-    Workling.config(true).should.equal({})
+    lambda { Workling.config(true) }.should.raise Workling::ConfigEnvironmentMissingError
   end
 
   specify "should raise an error when workling.yml is missing" do
     File.delete(File.join(RAILS_ROOT, 'config', 'workling.yml'))
-    lambda {  Workling.config(true) }.should.raise Workling::ConfigurationError
+    lambda { Workling.config(true) }.should.raise Workling::ConfigFileMissingError
   end
 
   after :all do
